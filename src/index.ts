@@ -6,12 +6,35 @@ if (platform() !== "win32" || arch() !== "x64") {
    throw new Error("This package is currently only available for Windows 10 x64 and later");
 }
 
-const loopbackBinaryPath = path.resolve(__dirname, "../", "bin", `${platform()}-${arch()}`, "ApplicationLoopback.exe");
-const processListBinaryPath = path.resolve(__dirname, "../", "bin", `${platform()}-${arch()}`, "ProcessList.exe");
-
 export type Window = {
    processId: string;
    title: string;
+}
+
+let executableRoot = path.resolve(__dirname, "../", "bin");
+
+/**
+ * Sets the root directory path where executables are located.
+ * @param root - The absolute path to the executables root directory.
+ */
+export function setExecutablesRoot(root: string) {
+   executableRoot = root;
+}
+
+/**
+ * Returns the absolute path to the ApplicationLoopback executable binary.
+ * @returns {string} The resolved absolute path to the ApplicationLoopback executable.
+ */
+export function getLoopbackBinaryPath() {
+   return path.resolve(executableRoot, `${platform()}-${arch()}`, "ApplicationLoopback.exe");
+}
+
+/**
+ * Returns the absolute path to the ProcessList executable binary.
+ * @returns {string} The resolved absolute path to the ProcessList executable.
+ */
+export function getProcessListBinaryPath() {
+   return path.resolve(executableRoot, `${platform()}-${arch()}`, "ProcessList.exe");
 }
 
 /**
@@ -24,7 +47,7 @@ export type Window = {
  * });
  */
 export async function getActiveWindowProcessIds(): Promise<Window[]> {
-   const cppProcess = spawn(processListBinaryPath, { detached: true, stdio: "pipe" });
+   const cppProcess = spawn(getProcessListBinaryPath(), { detached: true, stdio: "pipe" });
    cppProcess.stdout.setEncoding("utf8");
 
    return new Promise<Window[]>((r) => {
@@ -63,7 +86,7 @@ export function startAudioCapture(processId: string, options: { onData?: (data: 
       throw new Error(`An audio capture with process id of ${processId} is already started`);
    }
 
-   const cppProcess = spawn(`${path.resolve(__dirname, loopbackBinaryPath)}`, [processId], { detached: true, stdio: "pipe" });
+   const cppProcess = spawn(`${path.resolve(__dirname, getLoopbackBinaryPath())}`, [processId], { detached: true, stdio: "pipe" });
 
    spawnedAudioCaptures.set(processId, cppProcess)
 

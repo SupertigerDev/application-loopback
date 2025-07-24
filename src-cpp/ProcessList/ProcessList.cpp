@@ -18,77 +18,56 @@ std::string WideToUtf8(const std::wstring& wide) {
     return result;
 }
 
-struct AppInfo {
-    DWORD processId;
+struct WindowInfo {
+    HWND hwnd;
+    std::string title;
     std::string processName;
-    std::string windowTitle;
-    HWND windowHandle;
-    bool isVisible;
+    DWORD processId;
 };
 
-// Callback function for EnumWindows
 BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
-    std::vector<AppInfo>* apps = reinterpret_cast<std::vector<AppInfo>*>(lParam);
+    std::vector<WindowInfo>* windows = reinterpret_cast<std::vector<WindowInfo>*>(lParam);
 
-    // Get window title using Unicode version
-    wchar_t windowTitle[256];
-    GetWindowTextW(hwnd, windowTitle, sizeof(windowTitle) / sizeof(wchar_t));
+    // Check if window is visible and has a title
+    if (IsWindowVisible(hwnd)) {
+        char windowTitle[256];
+        GetWindowTextA(hwnd, windowTitle, sizeof(windowTitle));
 
-    // Skip windows without titles (usually system windows)
-    if (wcslen(windowTitle) == 0) {
-        return TRUE;
+        // Skip windows without titles or with empty titles
+        if (strlen(windowTitle) > 0) {
+            WindowInfo info;
+            info.hwnd = hwnd;
+            info.title = windowTitle;
+
+            // Get process ID
+            GetWindowThreadProcessId(hwnd, &info.processId);
+
+            // Get process name
+            HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, info.processId);
+            if (hProcess) {
+                char processName[MAX_PATH];
+                if (GetModuleBaseNameA(hProcess, NULL, processName, sizeof(processName))) {
+                    info.processName = processName;
+                }
+                else {
+                    info.processName = "Unknown";
+                }
+                CloseHandle(hProcess);
+            }
+            else {
+                info.processName = "Unknown";
+            }
+
+            windows->push_back(info);
+        }
     }
 
-    // Convert to UTF-8 string
-    std::string windowTitleUtf8 = WideToUtf8(windowTitle);
-
-    // Get process ID
-    DWORD processId;
-    GetWindowThreadProcessId(hwnd, &processId);
-
-    // Get process handle
-    HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
-    if (hProcess == NULL) {
-        return TRUE;
-    }
-
-    // Get process name using Unicode version
-    wchar_t processName[MAX_PATH];
-    DWORD size = sizeof(processName) / sizeof(wchar_t);
-    if (!QueryFullProcessImageNameW(hProcess, 0, processName, &size)) {
-        CloseHandle(hProcess);
-        return TRUE;
-    }
-
-    // Extract just the filename from full path and convert to UTF-8
-    std::wstring fullPath(processName);
-    size_t lastSlash = fullPath.find_last_of(L"\\");
-    std::wstring fileName = (lastSlash != std::wstring::npos) ?
-        fullPath.substr(lastSlash + 1) : fullPath;
-    std::string fileNameUtf8 = WideToUtf8(fileName);
-
-    // Check if window is visible
-    bool isVisible = IsWindowVisible(hwnd);
-
-    // Add to our list
-    AppInfo app;
-    app.processId = processId;
-    app.processName = fileNameUtf8;
-    app.windowTitle = windowTitleUtf8;
-    app.windowHandle = hwnd;
-    app.isVisible = isVisible;
-
-    apps->push_back(app);
-
-    CloseHandle(hProcess);
-    return TRUE;
+    return TRUE; // Continue enumeration
 }
 
-// Alternative method using process enumeration - REMOVED for cleaner output
-
-void PrintApplicationsWithWindows(const std::vector<AppInfo>& apps) {
+void PrintApplicationsWithWindows(const std::vector<WindowInfo>& apps) {
     for (const auto& app : apps) {
-        std::cout << app.processId<< ";" << app.windowTitle << "\n";
+        std::cout << app.processId<< ";" << app.title << "\n";
     }
 }
 
@@ -97,13 +76,13 @@ int main() {
     SetConsoleOutputCP(CP_UTF8);
 
     // Enumerate windows to get all windows with titles
-    std::vector<AppInfo> windowApps;
+    std::vector<WindowInfo> windowApps;
     EnumWindows(EnumWindowsProc, reinterpret_cast<LPARAM>(&windowApps));
 
     // Filter only windows with titles (no duplicate removal)
-    std::vector<AppInfo> appsWithTitles;
+    std::vector<WindowInfo> appsWithTitles;
     for (const auto& app : windowApps) {
-        if (!app.windowTitle.empty()) {
+        if (!app.title.empty()) {
             appsWithTitles.push_back(app);
         }
     }

@@ -1,5 +1,5 @@
 {
-   "version": "1.2.2",
+   "version": "1.2.3",
    "name": "application-loopback",
    "repository": {
       "type": "git",
@@ -7,7 +7,8 @@
    },
    "license": "MIT",
    "scripts": {
-      "build": "tsdown"
+      "build": "tsdown",
+      "prepublish": "bun run build"
    },
    "devDependencies": {
       "@biomejs/biome": "2.0.2",

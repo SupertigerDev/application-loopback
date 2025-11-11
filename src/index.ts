@@ -9,6 +9,7 @@ if (platform() !== "win32" || arch() !== "x64") {
 export type Window = {
    processId: string;
    title: string;
+   hwnd: number;
 }
 
 let executableRoot = path.resolve(__dirname, "../", "bin");
@@ -55,10 +56,10 @@ export async function getActiveWindowProcessIds(): Promise<Window[]> {
 
       cppProcess.stdout.on("data", (d: string) => processes.push(
          ...d.split("\n").map(x => {
-            const [processId, title] = x.replace("\r", "").split(";");
+            const [processId, hwnd, title] = x.replace("\r", "").split(";");
 
             if (processId && title) {
-               return { processId, title };
+               return { processId, hwnd, title };
             }
             return undefined;
          }).filter(x => x !== undefined))

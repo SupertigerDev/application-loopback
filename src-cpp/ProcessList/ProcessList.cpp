@@ -88,7 +88,10 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
 
 void PrintApplicationsWithWindows(const std::vector<AppInfo>& apps) {
     for (const auto& app : apps) {
-        std::cout << app.processId<< ";" << app.windowTitle << "\n";
+        std::cout
+            << app.processId << ";"
+            << (unsigned long)app.windowHandle << ";"
+            << app.windowTitle << "\n";
     }
 }
 

@@ -9,8 +9,8 @@ if (platform() !== "win32" || arch() !== "x64") {
 export type Window = {
    processId: string;
    title: string;
-   hwnd: number;
-}
+   hwnd: string;
+};
 
 let executableRoot = path.resolve(__dirname, "../", "bin");
 
@@ -54,20 +54,25 @@ export async function getActiveWindowProcessIds(): Promise<Window[]> {
    return new Promise<Window[]>((r) => {
       const processes: Window[] = [];
 
-      cppProcess.stdout.on("data", (d: string) => processes.push(
-         ...d.split("\n").map(x => {
-            const [processId, hwnd, title] = x.replace("\r", "").split(";");
+      cppProcess.stdout.on("data", (d: string) =>
+         processes.push(
+            ...d
+               .split("\n")
+               .map((x) => {
+                  const [processId, hwnd, title] = x.replace("\r", "").split(";");
 
-            if (processId && title) {
-               return { processId, hwnd, title };
-            }
-            return undefined;
-         }).filter(x => x !== undefined))
-      )
+                  if (processId !== undefined && hwnd !== undefined && title !== undefined) {
+                     return { processId: processId, hwnd: hwnd, title };
+                  }
+                  return undefined;
+               })
+               .filter((x) => x !== undefined)
+         )
+      );
 
       cppProcess.stdout.on("close", () => {
-         r(processes)
-      })
+         r(processes);
+      });
    });
 }
 
@@ -87,17 +92,19 @@ export function startAudioCapture(processId: string, options: { onData?: (data: 
       throw new Error(`An audio capture with process id of ${processId} is already started`);
    }
 
-   const cppProcess = spawn(`${path.resolve(__dirname, getLoopbackBinaryPath())}`, [processId], { detached: true, stdio: "pipe" });
+   const cppProcess = spawn(`${path.resolve(__dirname, getLoopbackBinaryPath())}`, [processId], {
+      detached: true,
+      stdio: "pipe",
+   });
 
-   spawnedAudioCaptures.set(processId, cppProcess)
+   spawnedAudioCaptures.set(processId, cppProcess);
 
    cppProcess.stdout.on("data", (d) => {
       options.onData?.(d);
-   })
+   });
 
    return processId;
 }
-
 
 /**
  * Stops the audio capture process associated with the given process ID.
@@ -108,7 +115,7 @@ export function stopAudioCapture(processId: string): boolean {
    const cppProcess = spawnedAudioCaptures.get(processId);
 
    if (cppProcess) {
-      cppProcess.kill()
+      cppProcess.kill();
       spawnedAudioCaptures.delete(processId);
       return true;
    }
